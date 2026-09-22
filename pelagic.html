@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pelagic — a predator that learns</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:        #080d10;
+    --water:     #0b1216;
+    --hair:      #1b262b;
+    --hair-soft: #131c21;
+    --ink:       #e4e0d6;
+    --soft:      #7f8a8f;
+    --faint:     #4a5459;
+    --pos:       #c0924f;
+    --neg:       #6c93a6;
+    --alarm:     #a85a44;
+    --fish:      #ded9cd;
+    --shark:     #2b373d;
+    --shark-edge:#556269;
+    --scent:     #4d7f93;
+    --scent-a:   0.42;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#e7e9e4; --water:#dfe2dd; --hair:#b9bfb8; --hair-soft:#cdd2ca;
+      --ink:#131a1c; --soft:#5c666a; --faint:#8b9491;
+      --pos:#7c5a28; --neg:#3c6274; --alarm:#9a4a33;
+      --fish:#1d2528; --shark:#2f3b40; --shark-edge:#0f1518;
+      --scent:#5d7f86; --scent-a:0.30;
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#e7e9e4; --water:#dfe2dd; --hair:#b9bfb8; --hair-soft:#cdd2ca;
+    --ink:#131a1c; --soft:#5c666a; --faint:#8b9491;
+    --pos:#7c5a28; --neg:#3c6274; --alarm:#9a4a33;
+    --fish:#1d2528; --shark:#2f3b40; --shark-edge:#0f1518;
+    --scent:#5d7f86; --scent-a:0.30;
+    color-scheme: light;
+  }
+  *{box-sizing:inherit}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size:14px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    font-feature-settings:"tnum" 1;
+  }
+  .frame{height:100%; display:grid; grid-template-columns: minmax(0,1fr) 380px;}
+
+  .stage{position:relative; min-width:0;}
+  .masthead{position:absolute; top:26px; left:30px; z-index:2; pointer-events:none; max-width:min(430px,60%);}
+  .masthead h1{
+    font-family:"Instrument Serif", Georgia, serif;
+    font-weight:400; font-size:46px; line-height:0.95; letter-spacing:-0.01em; margin:0 0 8px;
+  }
+  .masthead p{margin:0; color:var(--soft); font-size:13px; max-width:36ch;}
+  #water{position:absolute; inset:0; display:block; width:100%; height:100%;}
+  .readout{
+    position:absolute; left:30px; bottom:24px; z-index:2; pointer-events:none;
+    display:flex; gap:26px; color:var(--soft); font-size:12px;
+  }
+  .readout b{display:block; color:var(--ink); font-size:20px; font-weight:400; line-height:1.15;}
+
+  .panel{border-left:1px solid var(--hair); overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column;}
+  .block{padding:22px 24px; border-bottom:1px solid var(--hair-soft);}
+  .block:last-child{border-bottom:none}
+  .block h2{font-family:"Instrument Serif", Georgia, serif; font-weight:400; font-size:21px; margin:0 0 3px;}
+  .block .note{margin:0 0 16px; color:var(--soft); font-size:12px; max-width:38ch;}
+  .block .after{margin:10px 0 0; color:var(--soft); font-size:11.5px; max-width:38ch;}
+  #brain{display:block; width:100%; height:auto;}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:10px; color:var(--soft); font-size:11.5px;}
+  .legend span{display:flex; align-items:center; gap:6px;}
+  .swatch{width:14px; height:2px; display:inline-block;}
+
+  .rows{display:flex; flex-direction:column; gap:9px; margin-bottom:14px;}
+  .row{display:flex; justify-content:space-between; align-items:baseline; gap:12px;}
+  .row dt{color:var(--soft); font-size:12.5px; margin:0;}
+  .row dd{margin:0; font-size:13px; text-align:right;}
+  .verdict{
+    font-family:"Instrument Serif", Georgia, serif; font-size:30px; line-height:1.1;
+    margin:4px 0 2px;
+  }
+  .verdict small{font-family:"IBM Plex Sans",sans-serif; font-size:12px; color:var(--soft); display:block; margin-top:4px;}
+  .stages{display:flex; gap:4px; margin:2px 0 12px;}
+  .stages i{flex:1; height:3px; background:var(--hair); display:block;}
+  .stages i.on{background:var(--pos)}
+  .stages i.now{background:var(--ink)}
+  #curve{display:block; width:100%; height:64px; border-bottom:1px solid var(--hair);}
+  .curvefoot{display:flex; justify-content:space-between; color:var(--faint); font-size:11px; margin-top:6px;}
+
+  .controls{display:flex; flex-wrap:wrap; gap:8px;}
+  button{
+    font:inherit; font-size:12.5px; color:var(--ink); background:transparent;
+    border:1px solid var(--hair); padding:7px 12px; border-radius:1px; cursor:pointer;
+    transition:border-color .12s ease;
+  }
+  button:hover{border-color:var(--soft)}
+  button[aria-pressed="true"]{border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--hair);}
+  button:focus-visible{outline:2px solid var(--pos); outline-offset:2px}
+  .io{display:none; margin-top:12px}
+  .io.on{display:block}
+  .io textarea{
+    width:100%; height:118px; resize:vertical; padding:8px; border-radius:1px;
+    font:11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    background:transparent; color:var(--soft); border:1px solid var(--hair);
+  }
+  .io .controls{margin-top:8px}
+  .status{margin-top:10px; font-size:11.5px; color:var(--soft); min-height:1.2em;}
+  .colophon{color:var(--faint); font-size:11.5px; max-width:40ch;}
+  .colophon p{margin:0 0 8px}
+  .colophon p:last-child{margin:0}
+
+  @media (max-width: 920px){
+    html,body{height:auto}
+    .frame{grid-template-columns:1fr; height:auto;}
+    .stage{aspect-ratio:1/1;}
+    .panel{border-left:none; border-top:1px solid var(--hair);}
+    .masthead{top:18px; left:18px; max-width:74%}
+    .masthead h1{font-size:34px}
+    .readout{left:18px; bottom:16px; gap:18px}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<div class="frame">
+  <section class="stage">
+    <div class="masthead">
+      <h1>Pelagic</h1>
+      <p>A shark that can see only a short way ahead of it learns to hunt a school of fish. Past that, it has to follow the smell they leave in the water. The school is evolving back.</p>
+    </div>
+    <canvas id="water" role="img" aria-label="A school of fish, their scent plume, and a hunting shark, drawn live"></canvas>
+    <div class="readout">
+      <div><b id="r-gen">—</b>generation</div>
+      <div><b id="r-caught">0</b>caught so far</div>
+      <div><b id="r-seen">0</b>fish in sight</div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="block">
+      <h2>The shark's brain</h2>
+      <p class="note">Fourteen senses, ten hidden units, one decision: how hard to turn. Filled circles are firing now; line weight is the strength of a connection. At stage 8 the hidden units start feeding back into themselves, and the brain gains a memory of the tick before.</p>
+      <canvas id="brain" role="img" aria-label="The shark's neural network, with live activity"></canvas>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--pos)"></i>turn this way</span>
+        <span><i class="swatch" style="background:var(--neg)"></i>turn the other</span>
+        <span><i class="swatch" style="background:var(--hair)"></i>not yet given</span>
+      </div>
+      <p class="after">Sight reaches 160 units and stops, in a 150° cone; nothing is seen to the sides or behind. The four wall senses carry at any distance, on purpose: without them a shark with nothing in view reads a constant, and a constant turn is a circle. The last three senses are the nose: how strong the scent is here, whether there is more of it to one side, and whether it is building up ahead.</p>
+    </div>
+
+    <div class="block">
+      <h2>What each faculty is worth</h2>
+      <p class="note">Each generation's champion hunts the same water up to three times: intact, with the three scent inputs forced to zero, and with its memory held at zero. Same brain, same fish, same start. The school is adapting too, so expect these to wander.</p>
+      <div class="verdict" id="v-delta">—<small id="v-sub">waiting for stage 7</small></div>
+      <dl class="rows" style="margin-top:14px">
+        <div class="row"><dt>Nose working</dt><dd id="s-with">—</dd></div>
+        <div class="row"><dt>Nostrils blocked</dt><dd id="s-without">—</dd></div>
+        <div class="row"><dt>Memory blocked</dt><dd id="s-nomem">—</dd></div>
+        <div class="row"><dt>Trials run</dt><dd id="s-trials">0</dd></div>
+      </dl>
+    </div>
+
+    <div class="block">
+      <h2>The school</h2>
+      <p class="note">Every fish carries seven inherited numbers. When one is eaten, its place is taken by a mutated copy of a survivor, so the school is under selection the whole time the shark is hunting it. Tick marks are where each trait started.</p>
+      <canvas id="traits" role="img" aria-label="Six inherited traits of the school, and how far each has drifted"></canvas>
+      <dl class="rows" style="margin:14px 0 0">
+        <div class="row"><dt>Lost to the shark</dt><dd id="s-eaten">—</dd></div>
+        <div class="row"><dt>The school's feeding rate</dt><dd id="s-starved">—</dd></div>
+      </dl>
+      <p class="after">A fish that is bolting is not feeding. When a place falls empty it goes to a survivor chosen in proportion to how well it has been eating, so watchfulness is paid for in descendants. That bill is the only thing stopping the school from becoming one of paranoid sprinters.</p>
+    </div>
+
+    <div class="block">
+      <h2>Training</h2>
+      <p class="note">Twenty-four sharks hunt in private each generation. The four that eat most become the parents of the next twenty-four.</p>
+      <div class="stages" id="stages" aria-hidden="true"></div>
+      <dl class="rows">
+        <div class="row"><dt id="stage-label">Stage 1 of 8</dt><dd id="stage-desc">distance only</dd></div>
+        <div class="row"><dt>Generation</dt><dd id="s-gen">0</dd></div>
+        <div class="row"><dt>Best single hunt</dt><dd id="s-best">0 fish</dd></div>
+        <div class="row"><dt>This generation, average</dt><dd id="s-mean">—</dd></div>
+        <div class="row"><dt>Evaluating</dt><dd id="s-prog">shark 1 of 24</dd></div>
+      </dl>
+      <canvas id="curve" role="img" aria-label="Fish eaten per generation"></canvas>
+      <div class="curvefoot"><span>fish eaten each generation: average, and best</span><span id="c-max">0</span></div>
+    </div>
+
+    <div class="block">
+      <h2>Controls</h2>
+      <div class="controls">
+        <button id="b-pause" aria-pressed="false">Pause the water</button>
+        <button id="b-fast" aria-pressed="false">Run at ×3</button>
+        <button id="b-scent" aria-pressed="true">Hide the scent</button>
+        <button id="b-sense" aria-pressed="false">Show what it sees</button>
+        <button id="b-skip">Hand it everything</button>
+        <button id="b-reset">Start evolution over</button>
+        <button id="b-theme">Print on paper</button>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>Keep this brain</h2>
+      <p class="note">Training starts from nothing every time you open this page. Save the weights and you can carry a hunter between sessions, or take it apart offline.</p>
+      <div class="controls">
+        <button id="b-save">Save the weights</button>
+        <button id="b-load">Load weights</button>
+      </div>
+      <div class="io" id="io-panel">
+        <textarea id="io-text" spellcheck="false" aria-label="Brain weights as JSON"></textarea>
+        <div class="controls">
+          <button id="b-copy">Copy</button>
+          <button id="b-apply">Load these weights</button>
+          <button id="b-close">Close</button>
+        </div>
+      </div>
+      <p class="status" id="io-status"></p>
+    </div>
+
+    <div class="block colophon">
+      <p>The school is Reynolds' boids: separate, align, follow the centre, and flee a predator. Those weights are no longer fixed — each fish inherits its own, so the school drifts as the shark improves and the shark's catch falls as the school does. Neither side settles.</p>
+      <p>The seventh number is the one to watch: how far off a straight line away from the shark a fish breaks. Nothing charges for it. Turning sideways simply keeps you nearer the thing chasing you, and turning too far points you back into it, so the price is paid in geometry rather than in energy. Which side a fish breaks to is a coin flip at birth and is not inherited, which is why a school fans apart instead of wheeling as one.</p>
+      <p>Every fish leaves scent in the water each tick. The field diffuses and decays with a half-life of about five seconds, so the plume behind a school is a record of where it has just been. The shark reads it the way a real one does — by comparing its two nostrils, not by being told a direction.</p>
+      <p>The brain is a 14–10–1 network with tanh units and 161 weights, ten of which give each hidden unit a leaky connection to its own state one tick earlier — a time constant, so it can average a signal over time instead of only reacting to this instant. Until stage 8 those are held at zero and it is strictly feed-forward, reacting only to this instant. No gradients and no library: weights are mutated and selected on how many fish each shark catches. Senses are handed over one stage at a time, because a brain given everything at once tends to learn nothing.</p>
+      <p>Because both sides move, a generation's catch is not comparable with one fifty generations earlier: a later shark may be better and still eat less. The trait chart is the other half of that story.</p>
+      <p>Pausing the water gives the whole frame budget to training.</p>
+    </div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ *  Pelagic — boids school, short-sighted predator, olfactory tracking
+ * ------------------------------------------------------------------ */
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const gauss = (rnd) => {
+  let u = 0, v = 0;
+  while (u === 0) u = rnd();
+  while (v === 0) v = rnd();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+};
+
+/* ---------- network ---------- */
+const N_IN = 14, N_HID = 10, N_OUT = 1;
+const W_REC = N_IN * N_HID;                    // one self-connection per hidden unit
+const W_OUT = W_REC + N_HID;                   // where the output weights start
+const GENOME = W_OUT + N_HID + 1;              // 140 + 10 + 11 = 161
+
+const SENSES = [
+  { label:'bias',         stage:1 },
+  { label:'how close',    stage:1 },
+  { label:'fish ahead',   stage:2 },
+  { label:'fish beside',  stage:2 },
+  { label:'closing',      stage:3 },
+  { label:'wall ahead',   stage:4 },
+  { label:'wall astern',  stage:4 },
+  { label:'wall left',    stage:5 },
+  { label:'wall right',   stage:5 },
+  { label:'shoal ahead',  stage:6 },
+  { label:'shoal beside', stage:6 },
+  { label:'scent here',   stage:7 },
+  { label:'scent beside', stage:7 },
+  { label:'scent ahead',  stage:7 }
+];
+const SCENT_IDX = [11, 12, 13];
+const STAGE_DESC = [
+  'distance to a fish it can see',
+  'adds the direction to that fish',
+  'adds closing speed',
+  'adds the walls fore and aft',
+  'adds the walls to each side',
+  'adds the centre of the visible shoal',
+  'full sense \u2014 adds the nose',
+  'memory \u2014 the hidden units feed back'
+];
+
+function randomGenome(rnd){
+  const g = new Float32Array(GENOME);
+  for (let i = 0; i < GENOME; i++) g[i] = gauss(rnd) * 0.7;
+  return g;
+}
+
+const hid = new Float32Array(N_HID);
+function think(g, sense, mask, mem, recur){
+  for (let j = 0; j < N_HID; j++){
+    let s = 0; const base = j * N_IN;
+    for (let i = 0; i < N_IN; i++) s += g[base + i] * (sense[i] * mask[i]);
+    if (recur){
+      // a leak, not a free gain: negative feedback at one tick is just oscillation,
+      // and anything past 1 latches the unit solid. Neither is a time constant.
+      const r = g[W_REC + j];
+      if (r > 0) s += (r > 0.9 ? 0.9 : r) * mem[j];
+    }
+    hid[j] = Math.tanh(s);
+  }
+  let out = g[W_OUT + N_HID];
+  for (let j = 0; j < N_HID; j++) out += g[W_OUT + j] * hid[j];
+  mem.set(hid);                      // what it carries into the next tick
+  return Math.tanh(out);
+}
+
+/* ---------- spatial hash ---------- */
+class Grid{
+  constructor(cell){ this.cell = cell; this.map = new Map(); this.cols = 1; }
+  rebuild(items, w){
+    this.map.clear();
+    this.cols = Math.max(1, Math.ceil(w / this.cell));
+    for (let i = 0; i < items.length; i++){
+      const f = items[i];
+      const k = Math.floor(f.y / this.cell) * this.cols + Math.floor(f.x / this.cell);
+      let b = this.map.get(k);
+      if (!b){ b = []; this.map.set(k, b); }
+      b.push(f);
+    }
+  }
+  near(x, y, out){
+    out.length = 0;
+    const cx = Math.floor(x / this.cell), cy = Math.floor(y / this.cell);
+    for (let j = -1; j <= 1; j++){
+      for (let i = -1; i <= 1; i++){
+        const b = this.map.get((cy + j) * this.cols + (cx + i));
+        if (b) for (let k = 0; k < b.length; k++) out.push(b[k]);
+      }
+    }
+    return out;
+  }
+}
+
+/* ---------- scent field ---------- */
+const SCELL = 25, SCENT_EVERY = 3, SCENT_DECAY = 0.978, SCENT_K = 0.08;
+const SCENT_FLOOR = 0.8, SCENT_SCALE = 14;
+
+class Scent{
+  constructor(w, h){ this.set(w, h); }
+  set(w, h){
+    this.cols = Math.max(2, Math.ceil(w / SCELL));
+    this.rows = Math.max(2, Math.ceil(h / SCELL));
+    const n = this.cols * this.rows;
+    this.a = new Float32Array(n); this.b = new Float32Array(n);
+  }
+  clear(){ this.a.fill(0); this.b.fill(0); }
+  deposit(x, y){
+    const c = x / SCELL | 0, r = y / SCELL | 0;
+    if (c < 0 || r < 0 || c >= this.cols || r >= this.rows) return;
+    this.a[r * this.cols + c] += 1;
+  }
+  update(){
+    const a = this.a, b = this.b, cols = this.cols, rows = this.rows;
+    const k = SCENT_K, m = 1 - 2 * k;
+    for (let r = 0; r < rows; r++){
+      const o = r * cols;
+      for (let c = 0; c < cols; c++){
+        const l = a[o + (c > 0 ? c - 1 : c)], rr = a[o + (c < cols - 1 ? c + 1 : c)];
+        b[o + c] = k * l + m * a[o + c] + k * rr;
+      }
+    }
+    for (let c = 0; c < cols; c++){
+      for (let r = 0; r < rows; r++){
+        const u = b[(r > 0 ? r - 1 : r) * cols + c], d = b[(r < rows - 1 ? r + 1 : r) * cols + c];
+        a[r * cols + c] = (k * u + m * b[r * cols + c] + k * d) * SCENT_DECAY;
+      }
+    }
+  }
+  sample(x, y){
+    const fx = x / SCELL - 0.5, fy = y / SCELL - 0.5;
+    let c0 = Math.floor(fx), r0 = Math.floor(fy);
+    const tx = fx - c0, ty = fy - r0;
+    const cm = this.cols - 1, rm = this.rows - 1;
+    const c1 = Math.min(cm, Math.max(0, c0 + 1)), r1 = Math.min(rm, Math.max(0, r0 + 1));
+    c0 = Math.min(cm, Math.max(0, c0)); r0 = Math.min(rm, Math.max(0, r0));
+    const a = this.a;
+    const top = a[r0 * this.cols + c0] * (1 - tx) + a[r0 * this.cols + c1] * tx;
+    const bot = a[r1 * this.cols + c0] * (1 - tx) + a[r1 * this.cols + c1] * tx;
+    return top * (1 - ty) + bot * ty;
+  }
+}
+
+/* ---------- prey genome ---------- */
+const PREY_GENES = 7, R_MAX = 72;
+const TRAITS = [
+  { label:'how far each fish looks', lo:26,  hi:72,  unit:' units' },
+  { label:'keep your distance',      lo:0.5, hi:2.1, unit:'' },
+  { label:'match your neighbours',   lo:0.1, hi:1.3, unit:'' },
+  { label:'stay with the group',     lo:0.1, hi:1.3, unit:'' },
+  { label:'how hard to bolt',        lo:0,   hi:6,   unit:'' },
+  { label:'how soon to bolt',        lo:50,  hi:230, unit:' units' },
+  { label:'which way to bolt',       lo:0,   hi:120, unit:'\u00b0 off' }
+];
+// where the school starts: Reynolds' weights, the ones in the original
+const PREY_START = [0.696, 0.406, 0.375, 0.267, 0.500, 0.472, 0.150];
+
+function preyDecode(f){
+  const g = f.g;
+  f.R     = 26  + g[0] * 46;
+  f.wSep  = 0.5 + g[1] * 1.6;
+  f.wAli  = 0.1 + g[2] * 1.2;
+  f.wCoh  = 0.1 + g[3] * 1.2;
+  f.wFlee =       g[4] * 6;
+  f.rFlee = 50  + g[5] * 180;
+  // how far off "straight away" this fish breaks. Which side is a coin flip at
+  // birth, not inherited, so a school fans apart instead of turning as one.
+  const jink = g[6] * 2.0944 * (f.jinkSide || 1);   // up to 120 degrees
+  f.jinkC = Math.cos(jink); f.jinkS = Math.sin(jink);
+}
+function preyMutate(src, dst, rnd){
+  for (let i = 0; i < PREY_GENES; i++){
+    let v = src[i];
+    if (rnd() < 0.25) v += gauss(rnd) * 0.06;
+    if (rnd() < 0.02) v += gauss(rnd) * 0.22;
+    dst[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+}
+function preySeed(rnd){
+  const g = new Float32Array(PREY_GENES);
+  for (let i = 0; i < PREY_GENES; i++){
+    const v = PREY_START[i] + gauss(rnd) * 0.08;
+    g[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+  return g;
+}
+
+/* ---------- world ---------- */
+const FISH_SPEED = 2.45, FISH_FORCE = 0.15;
+const R_SEP = 19;
+const INCOME = 1.0, UPKEEP = 0.48, WATCH_COST = 0.08, ALERT_COST = 0.06, PRIME_COST = 0.05,
+      BURST_COST = 1.6, COND_TAU = 0.0035;
+const SHARK_SPEED = 3.35, SHARK_TURN = 0.062, CATCH = 11;
+const VISION = 160, FOV_COS = Math.cos(75 * Math.PI / 180);
+const WALL_RANGE = 1000;   // the walls are always felt: never a blank input vector
+
+class World{
+  constructor(w, h, n){
+    this.w = w; this.h = h; this.n = n;
+    this.fish = [];
+    this.grid = new Grid(R_MAX);
+    this.scratch = [];
+    this.sense = new Float32Array(N_IN);
+    this.mem = new Float32Array(N_HID);
+    this.scent = new Scent(w, h);
+    this.events = [];
+    this.reset(mulberry32(1));
+  }
+  resize(w, h){ this.w = w; this.h = h; this.scent.set(w, h); }
+  reset(rnd, pool){
+    this.rnd = rnd;
+    this.seedPool = pool || null;
+    this.fish.length = 0;
+    const cx = this.w * (0.3 + rnd() * 0.4), cy = this.h * (0.3 + rnd() * 0.4);
+    for (let i = 0; i < this.n; i++){
+      const a = rnd() * 6.283, r = Math.sqrt(rnd()) * Math.min(this.w, this.h) * 0.22;
+      const d = rnd() * 6.283;
+      const f = {
+        x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r,
+        vx: Math.cos(d) * FISH_SPEED, vy: Math.sin(d) * FISH_SPEED,
+        flee: 0, ang: d, g: new Float32Array(PREY_GENES), cond: 0.2,
+        jinkSide: rnd() < 0.5 ? 1 : -1
+      };
+      if (pool) preyMutate(pool[i % pool.length], f.g, rnd);
+      else f.g.set(preySeed(rnd));
+      preyDecode(f);
+      this.fish.push(f);
+    }
+    this.cx = cx; this.cy = cy;
+    this.mem.fill(0);
+    // the shark starts in the far corner: it must find them before it can hunt them
+    this.sx = this.w - cx; this.sy = this.h - cy;
+    this.head = rnd() * 6.283;
+    this.catches = 0; this.wallHits = 0; this.shape = 0; this.seen = 0;
+    this.scent.clear();
+    this.events.length = 0;
+    this.t = 0;
+  }
+  // a place in the school is never empty: it is refilled by a mutated copy of a survivor
+  respawnPrey(f){
+    const rnd = this.rnd;
+    let src;
+    if (this.usePool && this.seedPool){
+      // the display tank is a window onto the pool the training arenas are breeding
+      src = this.seedPool[(rnd() * this.seedPool.length) | 0];
+    } else {
+      // the parent is drawn in proportion to how well it has been feeding, so
+      // being jumpy is paid for in descendants rather than in corpses
+      let tot = 0;
+      for (let i = 0; i < this.fish.length; i++){
+        const o = this.fish[i];
+        if (o !== f && o.cond > 0) tot += o.cond * o.cond;
+      }
+      let pick = rnd() * tot, chosen = null;
+      for (let i = 0; i < this.fish.length; i++){
+        const o = this.fish[i];
+        if (o === f || o.cond <= 0) continue;
+        pick -= o.cond * o.cond;
+        if (pick <= 0){ chosen = o; break; }
+      }
+      src = (chosen || this.fish[(rnd() * this.fish.length) | 0]).g;
+    }
+    preyMutate(src, f.g, rnd);
+    f.jinkSide = rnd() < 0.5 ? 1 : -1;
+    preyDecode(f);
+    const a = rnd() * 6.283, r = 60 + rnd() * 70;
+    f.x = Math.max(20, Math.min(this.w - 20, this.cx + Math.cos(a) * r));
+    f.y = Math.max(20, Math.min(this.h - 20, this.cy + Math.sin(a) * r));
+    f.vx = -Math.cos(a) * FISH_SPEED; f.vy = -Math.sin(a) * FISH_SPEED;
+    f.flee = 0; f.cond = 0.15;
+  }
+  stepFish(){
+    const g = this.grid, sc = this.scratch;
+    g.rebuild(this.fish, this.w);
+    const sx = this.sx, sy = this.sy;
+    for (let i = 0; i < this.fish.length; i++){
+      const f = this.fish[i];
+      const near = g.near(f.x, f.y, sc);
+      let spx = 0, spy = 0, alx = 0, aly = 0, cox = 0, coy = 0, cnt = 0;
+      for (let k = 0; k < near.length; k++){
+        const o = near[k];
+        if (o === f) continue;
+        const dx = f.x - o.x, dy = f.y - o.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 > f.R * f.R || d2 === 0) continue;
+        const d = Math.sqrt(d2);
+        cnt++;
+        alx += o.vx; aly += o.vy;
+        cox += o.x;  coy += o.y;
+        if (d < R_SEP){ spx += dx / d2 * 9; spy += dy / d2 * 9; }
+      }
+      let ax = 0, ay = 0;
+      if (cnt){
+        alx /= cnt; aly /= cnt;
+        const al = Math.hypot(alx, aly) || 1;
+        ax += (alx / al * FISH_SPEED - f.vx) * f.wAli;
+        ay += (aly / al * FISH_SPEED - f.vy) * f.wAli;
+        const hx = cox / cnt - f.x, hy = coy / cnt - f.y;
+        const hl = Math.hypot(hx, hy) || 1;
+        ax += (hx / hl * FISH_SPEED - f.vx) * f.wCoh;
+        ay += (hy / hl * FISH_SPEED - f.vy) * f.wCoh;
+      }
+      if (spx || spy){
+        const sl = Math.hypot(spx, spy) || 1;
+        ax += (spx / sl * FISH_SPEED - f.vx) * f.wSep;
+        ay += (spy / sl * FISH_SPEED - f.vy) * f.wSep;
+      }
+      const fx = f.x - sx, fy = f.y - sy;
+      const fd = Math.hypot(fx, fy);
+      if (fd < f.rFlee){
+        const urge = 1 - fd / f.rFlee;
+        f.flee = Math.max(f.flee, urge);
+        // break at an angle to the predator rather than straight down its line
+        const ux = fx / (fd || 1), uy = fy / (fd || 1);
+        const bx = ux * f.jinkC - uy * f.jinkS, by = ux * f.jinkS + uy * f.jinkC;
+        ax += (bx * FISH_SPEED - f.vx) * f.wFlee * urge;
+        ay += (by * FISH_SPEED - f.vy) * f.wFlee * urge;
+      }
+      f.flee *= 0.93;
+      const m = 60;
+      if (f.x < m) ax += (1 - f.x / m) * 0.9;
+      if (f.x > this.w - m) ax -= (1 - (this.w - f.x) / m) * 0.9;
+      if (f.y < m) ay += (1 - f.y / m) * 0.9;
+      if (f.y > this.h - m) ay -= (1 - (this.h - f.y) / m) * 0.9;
+
+      const al2 = Math.hypot(ax, ay);
+      if (al2 > FISH_FORCE){ ax = ax / al2 * FISH_FORCE; ay = ay / al2 * FISH_FORCE; }
+      f.vx += ax; f.vy += ay;
+      const sp = Math.hypot(f.vx, f.vy);
+      const top = FISH_SPEED * (1 + 0.45 * f.flee);
+      if (sp > top){ f.vx = f.vx / sp * top; f.vy = f.vy / sp * top; }
+      else if (sp < FISH_SPEED * 0.6){ const q = (sp || 1); f.vx = f.vx / q * FISH_SPEED * 0.6; f.vy = f.vy / q * FISH_SPEED * 0.6; }
+      f.x += f.vx; f.y += f.vy;
+      if (f.x < 2){ f.x = 2; f.vx = Math.abs(f.vx); }
+      if (f.x > this.w - 2){ f.x = this.w - 2; f.vx = -Math.abs(f.vx); }
+      if (f.y < 2){ f.y = 2; f.vy = Math.abs(f.vy); }
+      if (f.y > this.h - 2){ f.y = this.h - 2; f.vy = -Math.abs(f.vy); }
+      f.ang = Math.atan2(f.vy, f.vx);
+      // a fish that is bolting is not feeding, and watchfulness costs something
+      // even when nothing happens. Condition is a slow average of how well it eats.
+      const spd = Math.hypot(f.vx, f.vy);
+      const net = INCOME * (1 - f.flee)
+                - (UPKEEP + WATCH_COST * (f.R / 58) + ALERT_COST * (f.rFlee / 135)
+                   + PRIME_COST * (f.wFlee / 3) + BURST_COST * Math.max(0, spd / FISH_SPEED - 1));
+      f.cond += (net - f.cond) * COND_TAU;
+      this.scent.deposit(f.x, f.y);
+    }
+  }
+  /* --- what the shark can feel: short sight, then the nose --- */
+  senseNow(){
+    const s = this.sense;
+    const cos = Math.cos(this.head), sin = Math.sin(this.head);
+    let best = null, bd = Infinity, trueBest = Infinity;
+    let mx = 0, my = 0, seen = 0, tx = 0, ty = 0;
+    const V2 = VISION * VISION;
+    for (let i = 0; i < this.fish.length; i++){
+      const f = this.fish[i];
+      tx += f.x; ty += f.y;
+      const dx = f.x - this.sx, dy = f.y - this.sy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < trueBest) trueBest = d2;
+      if (d2 > V2) continue;
+      const d = Math.sqrt(d2) || 1;
+      if ((dx * cos + dy * sin) / d < FOV_COS) continue;   // behind the head
+      seen++;
+      mx += f.x; my += f.y;
+      if (d2 < bd){ bd = d2; best = f; }
+    }
+    this.seen = seen;
+    const nf = this.fish.length || 1;
+    this.cx = tx / nf; this.cy = ty / nf;
+    s[0] = 1;
+    if (best){
+      const d = Math.sqrt(bd);
+      s[1] = 1 - d / VISION;
+      const dx = best.x - this.sx, dy = best.y - this.sy, dl = d || 1;
+      const ux = dx / dl, uy = dy / dl;
+      s[2] =  ux * cos + uy * sin;
+      s[3] = -ux * sin + uy * cos;
+      const rvx = best.vx - cos * SHARK_SPEED, rvy = best.vy - sin * SHARK_SPEED;
+      s[4] = Math.max(-1, Math.min(1, -(rvx * ux + rvy * uy) / 5));
+      mx /= seen; my /= seen;
+      const gx = mx - this.sx, gy = my - this.sy, gl = Math.hypot(gx, gy) || 1;
+      s[9]  =  (gx / gl) * cos + (gy / gl) * sin;
+      s[10] = -(gx / gl) * sin + (gy / gl) * cos;
+      this.mx = mx; this.my = my;
+    } else {
+      s[1] = s[2] = s[3] = s[4] = s[9] = s[10] = 0;
+      this.mx = this.my = null;
+    }
+    s[5] = this.wall(cos, sin);
+    s[6] = this.wall(-cos, -sin);
+    s[7] = this.wall(sin, -cos);
+    s[8] = this.wall(-sin, cos);
+
+    // olfaction: two nostrils at the snout, and a reference point astern
+    const nx = this.sx + cos * 18, ny = this.sy + sin * 18;
+    const lx = -sin * 9, ly = cos * 9;
+    const L = this.scent.sample(nx + lx, ny + ly);
+    const R = this.scent.sample(nx - lx, ny - ly);
+    const F = L + R;
+    const A = this.scent.sample(this.sx - cos * 34, this.sy - sin * 34) * 2;
+    if (F + A < SCENT_FLOOR){
+      s[11] = s[12] = s[13] = 0;
+    } else {
+      s[11] = Math.tanh(F / SCENT_SCALE);
+      s[12] = (L - R) / (L + R + 1e-3);
+      s[13] = (F - A) / (F + A + 1e-3);
+    }
+    this.target = best;
+    this.nearest = Math.sqrt(trueBest);
+    return s;
+  }
+  wall(dx, dy){
+    let t = Infinity;
+    if (dx > 1e-6) t = Math.min(t, (this.w - this.sx) / dx);
+    else if (dx < -1e-6) t = Math.min(t, -this.sx / dx);
+    if (dy > 1e-6) t = Math.min(t, (this.h - this.sy) / dy);
+    else if (dy < -1e-6) t = Math.min(t, -this.sy / dy);
+    if (!isFinite(t)) return 0;
+    return 1 - Math.min(1, t / WALL_RANGE);
+  }
+  step(genome, mask, respawn, recur){
+    this.stepFish();
+    if (this.t % SCENT_EVERY === 0) this.scent.update();
+    const s = this.senseNow();
+    const turn = think(genome, s, mask, this.mem, recur);
+    this.turn = turn;
+    this.head += turn * SHARK_TURN;
+    const speed = SHARK_SPEED * (1 - 0.3 * Math.abs(turn));
+    this.sx += Math.cos(this.head) * speed;
+    this.sy += Math.sin(this.head) * speed;
+    let hit = false;
+    if (this.sx < 8){ this.sx = 8; hit = true; }
+    if (this.sx > this.w - 8){ this.sx = this.w - 8; hit = true; }
+    if (this.sy < 8){ this.sy = 8; hit = true; }
+    if (this.sy > this.h - 8){ this.sy = this.h - 8; hit = true; }
+    if (hit){ this.head += (this.rnd() - 0.5) * 0.5 + 0.35; this.wallHits++; }
+
+    const hx = this.sx + Math.cos(this.head) * 16, hy = this.sy + Math.sin(this.head) * 16;
+    for (let i = this.fish.length - 1; i >= 0; i--){
+      const f = this.fish[i];
+      if ((f.x - hx) ** 2 + (f.y - hy) ** 2 < CATCH * CATCH){
+        this.catches++;
+        this.events.push({ x: f.x, y: f.y, t: 0 });
+        if (respawn){
+          this.respawnPrey(f);
+        } else {
+          this.fish.splice(i, 1);
+        }
+      }
+    }
+    // shaping uses the true nearest fish: it is training pressure, not a sense
+    this.shape += (1 - Math.min(1, this.nearest / 700)) * 0.6;
+    this.t++;
+  }
+  meanCond(){
+    let m = 0;
+    for (let i = 0; i < this.fish.length; i++) m += this.fish[i].cond;
+    return m / (this.fish.length || 1);
+  }
+  fitness(){ return this.catches * 120 + this.shape - this.wallHits * 1.2; }
+}
+
+/* ---------- trainer ---------- */
+const POP = 24, EVAL_TICKS = 660, TRAIN_FISH = 60, ELITE = 4;
+const STAGE_MIN = 6, STAGE_MAX = 12, STAGE_TARGET = [2, 3, 4, 5, 6, 7, 9, 1e9];
+const LAST_STAGE = 8;
+
+function maskFor(stage){
+  const m = new Float32Array(N_IN);
+  for (let i = 0; i < N_IN; i++) m[i] = SENSES[i].stage <= stage ? 1 : 0;
+  return m;
+}
+function maskMinusScent(mask){
+  const m = mask.slice();
+  for (const i of SCENT_IDX) m[i] = 0;
+  return m;
+}
+
+const Trainer = {
+  init(seed){
+    const rnd = mulberry32(seed);
+    this.rnd = rnd;
+    this.pop = []; for (let i = 0; i < POP; i++) this.pop.push(randomGenome(rnd));
+    this.scores = new Float64Array(POP);
+    this.eaten = new Int32Array(POP);
+    this.i = 0; this.gen = 0; this.stage = 1; this.stageGens = 0;
+    this.mask = maskFor(1);
+    this.noNose = maskMinusScent(this.mask);
+    this.best = randomGenome(rnd);
+    this.bestEaten = 0;
+    this.history = [];
+    this.world = new World(1400, 900, TRAIN_FISH);
+    this.pool = Array.from({ length: TRAIN_FISH }, () => preySeed(rnd));
+    this.recordEaten = null; this.recordCond = null;
+    this.seed = seed + 1; this.probeSeed = seed + 104729;
+    this.phase = 'eval'; this.pi = 0; this.fresh = null; this.freshAge = 99;
+    this.trials = 0; this.sumWith = 0; this.sumWithout = 0;
+    this.memTrials = 0; this.sumMemOn = 0; this.sumNoMem = 0; this.probeNoMem = null;
+    this.probeWith = null; this.probeWithout = null;
+    this.beginIndividual();
+  },
+  beginIndividual(){
+    const seed = this.phase === 'probe' ? this.probeSeed : this.seed;
+    this.world.reset(mulberry32(seed), this.pool);
+    this.ticks = 0;
+  },
+  work(budgetMs){
+    const t0 = performance.now();
+    while (performance.now() - t0 < budgetMs){
+      const chunk = Math.min(16, EVAL_TICKS - this.ticks);
+      const probing = this.phase === 'probe';
+      const g = probing ? this.best : this.pop[this.i];
+      const m = probing && this.pi === 1 ? this.noNose : this.mask;
+      const rec = this.stage >= 8 && !(probing && this.pi === 2);
+      for (let k = 0; k < chunk; k++) this.world.step(g, m, true, rec);
+      this.ticks += chunk;
+      if (this.ticks >= EVAL_TICKS) this.finishEval();
+    }
+  },
+  finishEval(){
+    if (this.phase === 'eval'){
+      this.scores[this.i] = this.world.fitness();
+      this.eaten[this.i] = this.world.catches;
+      this.i++;
+      if (this.i >= POP){
+        this.select();
+        this.phase = 'probe'; this.pi = 0;
+      }
+    } else if (this.pi === 0){
+      // the champion hunting the school: this run decides which fish leave descendants
+      this.probeWith = this.world.catches;
+      this.recordEaten = this.world.catches;
+      this.recordCond = this.world.meanCond();
+      this.pool = this.world.fish.map(f => f.g.slice());
+      if (this.stage >= 7) this.pi = 1;
+      else { this.phase = 'eval'; this.nextGen(); }
+    } else if (this.pi === 1){
+      this.probeWithout = this.world.catches;
+      this.trials++;
+      this.sumWith += this.probeWith;
+      this.sumWithout += this.probeWithout;
+      if (this.stage >= 8) this.pi = 2;
+      else { this.phase = 'eval'; this.nextGen(); }
+    } else {
+      this.probeNoMem = this.world.catches;
+      this.memTrials++;
+      this.sumMemOn += this.probeWith;
+      this.sumNoMem += this.probeNoMem;
+      this.phase = 'eval';
+      this.nextGen();
+    }
+    this.beginIndividual();
+  },
+  select(){
+    const order = Array.from({ length: POP }, (_, i) => i).sort((a, b) => this.scores[b] - this.scores[a]);
+    const topEaten = this.eaten[order[0]];
+    let meanEaten = 0; for (let i = 0; i < POP; i++) meanEaten += this.eaten[i];
+    meanEaten /= POP;
+    if (topEaten > this.bestEaten) this.bestEaten = topEaten;
+    this.best = this.pop[order[0]].slice();
+    this.lastMean = meanEaten;
+    this.history.push({ b: topEaten, m: meanEaten });
+    if (this.history.length > 220) this.history.shift();
+
+    this.stageGens++; this.freshAge = (this.freshAge || 0) + 1;
+    const eliteMean = (this.eaten[order[0]] + this.eaten[order[1]] + this.eaten[order[2]] + this.eaten[order[3]]) / 4;
+    const ready = this.stageGens >= STAGE_MIN && eliteMean >= STAGE_TARGET[this.stage - 1];
+    if (this.stage < LAST_STAGE && (ready || this.stageGens >= STAGE_MAX)) this.advance();
+
+    const rnd = this.rnd;
+    const next = [];
+    for (let e = 0; e < ELITE; e++) next.push(this.pop[order[e]].slice());
+    const sigma = 0.45 * Math.max(0.35, 1 - this.gen / 120);
+    while (next.length < POP){
+      const a = this.pop[order[Math.floor(rnd() * rnd() * POP * 0.5)] || order[0]];
+      const b = this.pop[order[Math.floor(rnd() * rnd() * POP * 0.5)] || order[1]];
+      const c = new Float32Array(GENOME);
+      for (let k = 0; k < GENOME; k++){
+        c[k] = rnd() < 0.5 ? a[k] : b[k];
+        if (rnd() < 0.14) c[k] += gauss(rnd) * sigma;
+        if (rnd() < 0.006) c[k] = gauss(rnd) * 0.8;
+      }
+      // while a sense is new, search its wiring hard and leave the rest of the brain alone
+      if (this.fresh && this.freshAge < 7){
+        for (const k of this.fresh) if (rnd() < 0.5) c[k] += gauss(rnd) * 0.35;
+      }
+      next.push(c);
+    }
+    this.pop = next;
+  },
+  advance(){
+    const before = this.mask;
+    this.stage++; this.stageGens = 0;
+    this.mask = maskFor(this.stage);
+    this.noNose = maskMinusScent(this.mask);
+    // a new sense arrives silent: its weights start at zero, so it can only be
+    // recruited if it pays for itself. Otherwise it lands as noise in a working
+    // brain and selection simply learns to ignore it.
+    const fresh = [];
+    for (let i = 0; i < N_IN; i++){
+      if (!before[i] && this.mask[i]) for (let j = 0; j < N_HID; j++) fresh.push(j * N_IN + i);
+    }
+    if (this.stage === 8) for (let k = 0; k < N_HID; k++) fresh.push(W_REC + k);
+    const hush = g => { for (const k of fresh) g[k] = 0; };
+    this.pop.forEach(hush); hush(this.best);
+    this.fresh = fresh; this.freshAge = 0;
+  },
+  skipToFull(){
+    while (this.stage < LAST_STAGE) this.advance();
+  },
+  preyStats(){
+    const out = [];
+    const n = this.pool.length;
+    for (let i = 0; i < PREY_GENES; i++){
+      let m = 0; for (let k = 0; k < n; k++) m += this.pool[k][i];
+      m /= n;
+      let v = 0; for (let k = 0; k < n; k++){ const d = this.pool[k][i] - m; v += d * d; }
+      out.push({ mean: m, sd: Math.sqrt(v / n) });
+    }
+    return out;
+  },
+  nextGen(){
+    this.i = 0; this.gen++;
+    this.probeSeed++;
+    // the same water for three generations running: an adaptation needs a
+    // stable environment long enough to be noticed by selection
+    if (this.gen % 3 === 0) this.seed++;
+  }
+};
+
+/* ---------- theme ---------- */
+const T = {};
+function hexToRgb(h){
+  h = h.replace('#', '').trim();
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  const v = parseInt(h, 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+function readTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  ['bg','water','hair','hair-soft','ink','soft','faint','pos','neg','alarm','fish','shark','shark-edge','scent']
+    .forEach(k => T[k] = cs.getPropertyValue('--' + k).trim());
+  T.scentRgb = hexToRgb(T.scent || '#4d7f93');
+  T.scentA = parseFloat(cs.getPropertyValue('--scent-a')) || 0.4;
+}
+readTheme();
+if (window.matchMedia){
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', () => { readTheme(); drawCurve(); drawTraits(); });
+}
+
+/* ---------- showcase ---------- */
+const water = document.getElementById('water');
+const wctx = water.getContext('2d');
+const show = new World(1400, 900, 170);
+show.usePool = true;
+const showHid = new Float32Array(N_HID);   // the displayed shark's own hidden state
+let VW = 1000, VH = 660;
+
+const plume = document.createElement('canvas');
+const pctx = plume.getContext('2d');
+let plumeData = null;
+
+function syncPlume(){
+  const f = show.scent;
+  if (plume.width !== f.cols || plume.height !== f.rows){
+    plume.width = f.cols; plume.height = f.rows;
+    plumeData = pctx.createImageData(f.cols, f.rows);
+  }
+}
+function paintPlume(){
+  const f = show.scent, d = plumeData.data, [r, g, b] = T.scentRgb;
+  const amp = T.scentA * 255;
+  for (let i = 0; i < f.a.length; i++){
+    const v = f.a[i];
+    const a = v <= 0 ? 0 : Math.min(1, Math.sqrt(v / 140)) * amp;
+    const o = i * 4;
+    d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = a;
+  }
+  pctx.putImageData(plumeData, 0, 0);
+}
+
+function sizeWater(){
+  const r = water.parentElement.getBoundingClientRect();
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  water.width = Math.max(1, Math.round(r.width * dpr));
+  water.height = Math.max(1, Math.round(r.height * dpr));
+  VW = 1400;
+  VH = Math.max(600, Math.min(2100, Math.round(1400 * (r.height / Math.max(1, r.width)))));
+  show.resize(VW, VH);
+  syncPlume();
+  const scale = water.width / VW;
+  wctx.setTransform(scale, 0, 0, scale, 0, 0);
+  wctx.fillStyle = T.water;
+  wctx.fillRect(0, 0, VW, VH);
+}
+
+function fishPath(ctx){
+  ctx.beginPath();
+  ctx.moveTo(5.6, 0);
+  ctx.lineTo(-2.4, 2.3);
+  ctx.lineTo(-0.9, 0);
+  ctx.lineTo(-2.4, -2.3);
+  ctx.closePath();
+}
+
+function drawShark(ctx, x, y, a){
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(a);
+  ctx.beginPath();
+  ctx.moveTo(23, 0);
+  ctx.bezierCurveTo(14, 5.5, 2, 7.4, -11, 4.6);
+  ctx.lineTo(-19, 10.5);
+  ctx.lineTo(-15.5, 0);
+  ctx.lineTo(-19, -10.5);
+  ctx.lineTo(-11, -4.6);
+  ctx.bezierCurveTo(2, -7.4, 14, -5.5, 23, 0);
+  ctx.closePath();
+  ctx.fillStyle = T.shark; ctx.fill();
+  ctx.lineWidth = 0.7; ctx.strokeStyle = T['shark-edge']; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(2, -5.6); ctx.lineTo(-3.5, -13.5); ctx.lineTo(-7.5, -5.2); ctx.closePath();
+  ctx.moveTo(6, 4.4); ctx.lineTo(-2, 12); ctx.lineTo(-1, 4.2); ctx.closePath();
+  ctx.fillStyle = T.shark; ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+let showSense = false, showScent = true;
+
+function drawSenseOverlay(ctx){
+  ctx.save();
+  // the cone it can actually see
+  ctx.beginPath();
+  ctx.moveTo(show.sx, show.sy);
+  ctx.arc(show.sx, show.sy, VISION, show.head - 1.309, show.head + 1.309);
+  ctx.closePath();
+  ctx.fillStyle = T.ink; ctx.globalAlpha = 0.045; ctx.fill();
+  ctx.globalAlpha = 0.5; ctx.lineWidth = 0.7; ctx.strokeStyle = T.faint; ctx.stroke();
+  ctx.globalAlpha = 1;
+  if (show.target){
+    ctx.strokeStyle = T.pos; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(show.sx, show.sy); ctx.lineTo(show.target.x, show.target.y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(show.target.x, show.target.y, 6, 0, 6.283); ctx.stroke();
+  }
+  // the nostrils
+  const cos = Math.cos(show.head), sin = Math.sin(show.head);
+  const nx = show.sx + cos * 18, ny = show.sy + sin * 18;
+  ctx.fillStyle = T.neg;
+  for (const sgn of [1, -1]){
+    ctx.beginPath();
+    ctx.arc(nx - sin * 9 * sgn, ny + cos * 9 * sgn, 2.2, 0, 6.283);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function renderWater(frame){
+  const ctx = wctx;
+  ctx.globalAlpha = 0.34;
+  ctx.fillStyle = T.water;
+  ctx.fillRect(0, 0, VW, VH);
+  ctx.globalAlpha = 1;
+
+  if (showScent){
+    if (frame % 2 === 0) paintPlume();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(plume, 0, 0, VW, VH);
+  }
+
+  ctx.strokeStyle = T.hair; ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, VW - 1, VH - 1);
+
+  for (let i = 0; i < show.fish.length; i++){
+    const f = show.fish[i];
+    ctx.save();
+    ctx.translate(f.x, f.y); ctx.rotate(f.ang);
+    fishPath(ctx);
+    if (f.flee > 0.12){
+      ctx.fillStyle = T.alarm;
+      ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, f.flee);
+    } else {
+      ctx.fillStyle = T.fish;
+      ctx.globalAlpha = 0.82;
+    }
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  if (showSense) drawSenseOverlay(ctx);
+  drawShark(ctx, show.sx, show.sy, show.head);
+
+  for (let i = show.events.length - 1; i >= 0; i--){
+    const e = show.events[i];
+    e.t += 1;
+    const p = e.t / 26;
+    if (p >= 1){ show.events.splice(i, 1); continue; }
+    ctx.strokeStyle = T.alarm;
+    ctx.globalAlpha = (1 - p) * 0.8;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, 4 + p * 26, 0, 6.283); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- brain diagram ---------- */
+const brain = document.getElementById('brain');
+const bctx = brain.getContext('2d');
+let BW = 320, BH = 300, nodeIn = [], nodeHid = [], nodeOut = null;
+
+function sizeBrain(){
+  BW = Math.max(240, brain.parentElement.clientWidth - 48);
+  BH = Math.round(BW * 0.92);
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  brain.width = Math.round(BW * d); brain.height = Math.round(BH * d);
+  brain.style.height = BH + 'px';
+  bctx.setTransform(d, 0, 0, d, 0, 0);
+  const lx = 92, rx = BW - 24, mx = (lx + rx) / 2 + 10;
+  const top = 12, bot = BH - 14;
+  nodeIn = SENSES.map((s, i) => ({ x: lx, y: top + (bot - top) * i / (N_IN - 1), s }));
+  nodeHid = Array.from({ length: N_HID }, (_, j) => ({
+    x: mx, y: top + 26 + (bot - top - 52) * j / (N_HID - 1)
+  }));
+  nodeOut = { x: rx, y: (top + bot) / 2 };
+}
+
+function drawBrain(){
+  const ctx = bctx;
+  ctx.clearRect(0, 0, BW, BH);
+  const g = Trainer.best, mask = Trainer.mask, sense = show.sense;
+
+  for (let j = 0; j < N_HID; j++){
+    for (let i = 0; i < N_IN; i++){
+      const w = g[j * N_IN + i];
+      const live = mask[i] > 0;
+      const mag = Math.min(1, Math.abs(w) / 1.8);
+      if (mag < 0.07) continue;
+      ctx.beginPath();
+      ctx.moveTo(nodeIn[i].x + 5, nodeIn[i].y);
+      ctx.lineTo(nodeHid[j].x - 5, nodeHid[j].y);
+      ctx.lineWidth = 0.25 + mag * 1.25;
+      ctx.strokeStyle = live ? (w > 0 ? T.pos : T.neg) : T.hair;
+      ctx.globalAlpha = live ? 0.12 + mag * 0.5 * (0.35 + 0.65 * Math.min(1, Math.abs(sense[i]))) : 0.26;
+      ctx.stroke();
+    }
+  }
+  for (let j = 0; j < N_HID; j++){
+    const w = g[W_OUT + j];
+    const mag = Math.min(1, Math.abs(w) / 1.8);
+    ctx.beginPath();
+    ctx.moveTo(nodeHid[j].x + 5, nodeHid[j].y);
+    ctx.lineTo(nodeOut.x - 6, nodeOut.y);
+    ctx.lineWidth = 0.3 + mag * 1.6;
+    ctx.strokeStyle = w > 0 ? T.pos : T.neg;
+    ctx.globalAlpha = 0.2 + mag * 0.6 * (0.4 + 0.6 * Math.abs(showHid[j]));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.font = '10.5px "IBM Plex Sans", system-ui, sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < N_IN; i++){
+    const n = nodeIn[i], live = mask[i] > 0, v = sense[i] * mask[i];
+    ctx.fillStyle = live ? T.soft : T.faint;
+    ctx.globalAlpha = live ? 1 : 0.55;
+    ctx.fillText(n.s.label, n.x - 11, n.y);
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(n.x, n.y, 4.4, 0, 6.283);
+    ctx.fillStyle = v >= 0 ? T.pos : T.neg;
+    ctx.globalAlpha = live ? Math.min(1, Math.abs(v)) * 0.95 : 0;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.9; ctx.strokeStyle = live ? T.soft : T.hair; ctx.stroke();
+  }
+  for (let j = 0; j < N_HID; j++){
+    const n = nodeHid[j], v = showHid[j];
+    ctx.beginPath(); ctx.arc(n.x, n.y, 4.8, 0, 6.283);
+    ctx.fillStyle = v >= 0 ? T.pos : T.neg;
+    ctx.globalAlpha = Math.min(1, Math.abs(v)) * 0.9; ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 0.9; ctx.strokeStyle = T.soft; ctx.stroke();
+  }
+  // the feedback bundle: what the hidden layer hands back to itself
+  {
+    const on = Trainer.stage >= 8;
+    let mag = 0;
+    if (on){ for (let k = 0; k < N_HID; k++) mag += Math.abs(g[W_REC + k]); mag /= N_HID; }
+    let act = 0; for (let j = 0; j < N_HID; j++) act += Math.abs(showHid[j]); act /= N_HID;
+    const bx = nodeHid[0].x + 16, y0 = nodeHid[0].y, y1 = nodeHid[N_HID - 1].y;
+    ctx.strokeStyle = on ? T.pos : T.hair;
+    ctx.globalAlpha = on ? 0.25 + Math.min(1, mag / 0.6) * 0.55 * (0.4 + 0.6 * act) : 0.4;
+    ctx.lineWidth = on ? 0.6 + Math.min(1, mag / 0.6) * 1.4 : 0.7;
+    ctx.beginPath();
+    ctx.moveTo(nodeHid[N_HID - 1].x + 5, y1);
+    ctx.lineTo(bx, y1); ctx.lineTo(bx, y0); ctx.lineTo(nodeHid[0].x + 7, y0);
+    ctx.stroke();
+    ctx.beginPath();                                   // arrow back into the column
+    ctx.moveTo(nodeHid[0].x + 5.5, y0);
+    ctx.lineTo(nodeHid[0].x + 10, y0 - 2.6);
+    ctx.lineTo(nodeHid[0].x + 10, y0 + 2.6);
+    ctx.closePath();
+    ctx.fillStyle = on ? T.pos : T.hair; ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.translate(bx + 9, (y0 + y1) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.fillStyle = on ? T.soft : T.faint;
+    ctx.fillText('memory', 0, 0);
+    ctx.restore();
+  }
+
+  const o = show.turn || 0;
+  ctx.beginPath(); ctx.arc(nodeOut.x, nodeOut.y, 7.5, 0, 6.283);
+  ctx.fillStyle = o >= 0 ? T.pos : T.neg;
+  ctx.globalAlpha = Math.min(1, Math.abs(o)); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1; ctx.strokeStyle = T.ink; ctx.stroke();
+  ctx.textAlign = 'center'; ctx.fillStyle = T.soft;
+  ctx.fillText('turn', nodeOut.x, nodeOut.y + 20);
+}
+
+/* ---------- fitness curve ---------- */
+const curve = document.getElementById('curve');
+const cctx = curve.getContext('2d');
+function drawCurve(){
+  const w = Math.max(80, curve.parentElement.clientWidth - 48), h = 64;
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  if (curve.width !== Math.round(w * d)){
+    curve.width = Math.round(w * d); curve.height = Math.round(h * d);
+    curve.style.height = h + 'px';
+  }
+  cctx.setTransform(d, 0, 0, d, 0, 0);
+  cctx.clearRect(0, 0, w, h);
+  const hist = Trainer.history;
+  document.getElementById('c-max').textContent = Trainer.bestEaten;
+  if (hist.length < 2) return;
+  let max = 3;
+  for (const p of hist) if (p.b > max) max = p.b;
+  cctx.strokeStyle = T['hair-soft']; cctx.lineWidth = 1;
+  cctx.beginPath(); cctx.moveTo(0, h - 0.5); cctx.lineTo(w, h - 0.5); cctx.stroke();
+  const plot = (key, colour, width, alpha) => {
+    cctx.beginPath();
+    hist.forEach((p, i) => {
+      const x = (i / (hist.length - 1)) * w;
+      const y = h - 3 - (p[key] / max) * (h - 8);
+      i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
+    });
+    cctx.globalAlpha = alpha; cctx.strokeStyle = colour; cctx.lineWidth = width; cctx.stroke();
+    cctx.globalAlpha = 1;
+  };
+  plot('b', T.soft, 1, 0.42);
+  plot('m', T.pos, 1.4, 1);
+  const last = hist[hist.length - 1];
+  cctx.beginPath(); cctx.arc(w - 1.5, h - 3 - (last.m / max) * (h - 8), 2, 0, 6.283);
+  cctx.fillStyle = T.ink; cctx.fill();
+}
+
+/* ---------- trait chart ---------- */
+const traitsC = document.getElementById('traits');
+const tctx = traitsC.getContext('2d');
+function drawTraits(){
+  const w = Math.max(200, traitsC.parentElement.clientWidth - 48);
+  const rowH = 27, h = TRAITS.length * rowH + 4;
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  if (traitsC.width !== Math.round(w * d)){
+    traitsC.width = Math.round(w * d); traitsC.height = Math.round(h * d);
+    traitsC.style.height = h + 'px';
+  }
+  tctx.setTransform(d, 0, 0, d, 0, 0);
+  tctx.clearRect(0, 0, w, h);
+  const stats = Trainer.preyStats();
+  const x0 = Math.min(150, w * 0.44), x1 = w - 54;
+  tctx.font = '10.5px "IBM Plex Sans", system-ui, sans-serif';
+  tctx.textBaseline = 'middle';
+  for (let i = 0; i < TRAITS.length; i++){
+    const t = TRAITS[i], st = stats[i], y = 14 + i * rowH;
+    tctx.textAlign = 'left'; tctx.fillStyle = T.soft;
+    tctx.fillText(t.label, 0, y);
+    // the track
+    tctx.strokeStyle = T['hair-soft']; tctx.lineWidth = 1;
+    tctx.beginPath(); tctx.moveTo(x0, y + 0.5); tctx.lineTo(x1, y + 0.5); tctx.stroke();
+    // where it started
+    const sx = x0 + (x1 - x0) * PREY_START[i];
+    tctx.strokeStyle = T.faint;
+    tctx.beginPath(); tctx.moveTo(sx, y - 4); tctx.lineTo(sx, y + 4); tctx.stroke();
+    // the spread it currently has
+    const a = x0 + (x1 - x0) * Math.max(0, st.mean - st.sd);
+    const b = x0 + (x1 - x0) * Math.min(1, st.mean + st.sd);
+    tctx.strokeStyle = T.neg; tctx.globalAlpha = 0.45; tctx.lineWidth = 2.5;
+    tctx.beginPath(); tctx.moveTo(a, y + 0.5); tctx.lineTo(b, y + 0.5); tctx.stroke();
+    tctx.globalAlpha = 1;
+    // where it is now
+    const mx = x0 + (x1 - x0) * st.mean;
+    const drifted = Math.abs(st.mean - PREY_START[i]) > 0.06;
+    tctx.beginPath(); tctx.arc(mx, y + 0.5, 3, 0, 6.283);
+    tctx.fillStyle = drifted ? T.pos : T.ink; tctx.fill();
+    tctx.textAlign = 'right'; tctx.fillStyle = T.ink;
+    const val = t.lo + st.mean * (t.hi - t.lo);
+    tctx.fillText((t.hi > 10 ? val.toFixed(0) : val.toFixed(2)) + t.unit, w, y);
+  }
+}
+
+/* ---------- panel ---------- */
+const el = id => document.getElementById(id);
+const stagesBar = el('stages');
+for (let i = 0; i < LAST_STAGE; i++) stagesBar.appendChild(document.createElement('i'));
+
+function updatePanel(){
+  el('r-gen').textContent = Trainer.gen;
+  el('r-caught').textContent = show.catches;
+  el('r-seen').textContent = show.seen;
+  el('s-gen').textContent = Trainer.gen;
+  el('s-best').textContent = Trainer.bestEaten + ' fish';
+  el('s-mean').textContent = Trainer.lastMean === undefined ? 'first generation running' : Trainer.lastMean.toFixed(1) + ' fish';
+  el('s-prog').textContent = Trainer.phase === 'probe'
+    ? 'the control trial'
+    : 'shark ' + (Trainer.i + 1) + ' of ' + POP;
+  el('stage-label').textContent = 'Stage ' + Trainer.stage + ' of ' + LAST_STAGE;
+  el('stage-desc').textContent = STAGE_DESC[Trainer.stage - 1];
+  const kids = stagesBar.children;
+  for (let i = 0; i < LAST_STAGE; i++){
+    kids[i].className = (i + 1 < Trainer.stage) ? 'on' : (i + 1 === Trainer.stage ? 'now' : '');
+  }
+
+  if (Trainer.trials === 0){
+    el('v-delta').firstChild.nodeValue = '—';
+    el('v-sub').textContent = Trainer.stage >= 7 ? 'first trial running' : 'waiting for stage 7';
+    el('s-with').textContent = '—';
+    el('s-without').textContent = '—';
+  } else {
+    const a = Trainer.sumWith / Trainer.trials, b = Trainer.sumWithout / Trainer.trials;
+    const diff = a - b;
+    el('v-delta').firstChild.nodeValue = (diff >= 0 ? '+' : '\u2212') + Math.abs(diff).toFixed(1) + ' fish';
+    el('v-sub').textContent = b > 0.2
+      ? 'the nose is worth ' + (a / b).toFixed(1) + '\u00d7 the catch'
+      : 'blocked, it catches almost nothing';
+    el('s-with').textContent = a.toFixed(1) + ' fish, last ' + Trainer.probeWith;
+    el('s-without').textContent = b.toFixed(1) + ' fish, last ' + Trainer.probeWithout;
+  }
+  el('s-nomem').textContent = Trainer.memTrials === 0
+    ? (Trainer.stage >= 8 ? 'first trial running' : 'waiting for stage 8')
+    : (Trainer.sumNoMem / Trainer.memTrials).toFixed(1) + ' fish, '
+      + ((Trainer.sumMemOn - Trainer.sumNoMem) / Trainer.memTrials >= 0 ? 'costs ' : 'gains ')
+      + Math.abs((Trainer.sumMemOn - Trainer.sumNoMem) / Trainer.memTrials).toFixed(1);
+  el('s-trials').textContent = Trainer.trials;
+  el('s-eaten').textContent = Trainer.recordEaten === null ? '—' : Trainer.recordEaten + ' fish';
+  el('s-starved').textContent = Trainer.recordCond === null ? '—' : Trainer.recordCond.toFixed(3);
+}
+
+/* ---------- saving and restoring a brain ---------- */
+const r5 = x => Math.round(x * 1e5) / 1e5;
+
+function brainJSON(){
+  return JSON.stringify({
+    format: 'pelagic-brain',
+    version: 1,
+    saved: new Date().toISOString(),
+    network: {
+      inputs: N_IN, hidden: N_HID, outputs: N_OUT,
+      activation: 'tanh',
+      recurrence: 'one leak per hidden unit, clamped to [0, 0.9]; h(t) = tanh(Wx + leak*h(t-1))',
+      senses: SENSES.map(x => x.label),
+      active: SENSES.map((x, i) => Trainer.mask[i] ? 1 : 0),
+      memoryOn: Trainer.stage >= 8,
+      output: 'turn, in [-1, 1]',
+      layout: [
+        'w_in: ' + (N_IN * N_HID) + ' values, hidden-major (unit j occupies [j*' + N_IN + ' .. j*' + N_IN + '+' + (N_IN - 1) + '])',
+        'w_rec: ' + N_HID + ' values, one per hidden unit',
+        'w_out: ' + N_HID + ' values',
+        'b_out: 1 value'
+      ]
+    },
+    world: {
+      arena: [1400, 900], vision: VISION, fieldOfViewDegrees: 150,
+      sharkSpeed: SHARK_SPEED, turnRate: SHARK_TURN, catchRadius: CATCH,
+      scent: { cell: SCELL, decayPerUpdate: SCENT_DECAY, updateEveryTicks: SCENT_EVERY,
+               floor: SCENT_FLOOR, scale: SCENT_SCALE }
+    },
+    training: {
+      generation: Trainer.gen, stage: Trainer.stage, stagesTotal: LAST_STAGE,
+      bestSingleHunt: Trainer.bestEaten,
+      noseTrials: Trainer.trials,
+      noseWorking: Trainer.trials ? r5(Trainer.sumWith / Trainer.trials) : null,
+      nostrilsBlocked: Trainer.trials ? r5(Trainer.sumWithout / Trainer.trials) : null,
+      memoryTrials: Trainer.memTrials,
+      memoryWorking: Trainer.memTrials ? r5(Trainer.sumMemOn / Trainer.memTrials) : null,
+      memoryBlocked: Trainer.memTrials ? r5(Trainer.sumNoMem / Trainer.memTrials) : null
+    },
+    weights: Array.from(Trainer.best, r5),
+    prey: {
+      traits: TRAITS.map(t => ({ name: t.label, min: t.lo, max: t.hi })),
+      note: 'each pool entry is one fish genome, values in [0,1], decoded linearly into the ranges above',
+      pool: Trainer.pool.map(g => Array.from(g, r5))
+    }
+  });
+}
+
+function say(msg){ el('io-status').textContent = msg; }
+
+function applyBrain(text){
+  let d;
+  try { d = JSON.parse(text); }
+  catch (e){ say('That is not readable JSON.'); return false; }
+  if (!d || d.format !== 'pelagic-brain'){ say('That file is not a Pelagic brain.'); return false; }
+  const net = d.network || {};
+  if (net.inputs !== N_IN || net.hidden !== N_HID){
+    say('Those weights are for a ' + net.inputs + '\u2013' + net.hidden + ' network; this one is ' + N_IN + '\u2013' + N_HID + '.');
+    return false;
+  }
+  if (!Array.isArray(d.weights) || d.weights.length !== GENOME){
+    say('Expected ' + GENOME + ' weights, found ' + (d.weights ? d.weights.length : 0) + '.');
+    return false;
+  }
+  Trainer.best = Float32Array.from(d.weights);
+  const t = d.training || {};
+  Trainer.stage = Math.min(LAST_STAGE, Math.max(1, t.stage || LAST_STAGE));
+  Trainer.mask = maskFor(Trainer.stage);
+  Trainer.noNose = maskMinusScent(Trainer.mask);
+  Trainer.gen = t.generation || 0;
+  Trainer.bestEaten = t.bestSingleHunt || 0;
+  // the loaded brain becomes the elite; the rest of the population are its variants
+  const rnd = Trainer.rnd;
+  Trainer.pop = [Trainer.best.slice()];
+  while (Trainer.pop.length < POP){
+    const c = Trainer.best.slice();
+    for (let k = 0; k < GENOME; k++) if (rnd() < 0.14) c[k] += gauss(rnd) * 0.2;
+    Trainer.pop.push(c);
+  }
+  if (d.prey && Array.isArray(d.prey.pool) && d.prey.pool.length &&
+      d.prey.pool[0].length === PREY_GENES){
+    Trainer.pool = d.prey.pool.map(g => Float32Array.from(g));
+  }
+  Trainer.history = []; Trainer.stageGens = 0; Trainer.fresh = null; Trainer.freshAge = 99;
+  Trainer.phase = 'eval'; Trainer.i = 0; Trainer.pi = 0;
+  Trainer.trials = 0; Trainer.sumWith = 0; Trainer.sumWithout = 0;
+  Trainer.memTrials = 0; Trainer.sumMemOn = 0; Trainer.sumNoMem = 0;
+  Trainer.recordEaten = null; Trainer.recordCond = null;
+  Trainer.beginIndividual();
+  show.reset(mulberry32(Math.floor(Math.random() * 1e9)), Trainer.pool);
+  lastGen = -1; drawCurve(); drawTraits(); updatePanel();
+  say('Loaded. Generation ' + Trainer.gen + ', stage ' + Trainer.stage + '. Training continues from here.');
+  return true;
+}
+
+let saver = null, saverAsked = false;
+async function getSaver(){
+  if (saverAsked) return saver;
+  saverAsked = true;
+  try {
+    if (window.claude && typeof claude.use === 'function') saver = await claude.use('downloads');
+  } catch (e){ saver = null; }
+  return saver;
+}
+
+function showIO(text, msg){
+  el('io-panel').classList.add('on');
+  el('io-text').value = text;
+  say(msg);
+}
+
+/* ---------- loop ---------- */
+let paused = false, fast = false, lastGen = -1;
+let frame = 0, budget = 9, lastT = 0;
+
+function tick(now){
+  requestAnimationFrame(tick);
+  frame++;
+  if (lastT){
+    const dt = now - lastT;
+    if (dt > 26) budget = Math.max(3, budget - 0.6);
+    else if (dt < 19) budget = Math.min(11, budget + 0.25);
+  }
+  lastT = now;
+
+  show.seedPool = Trainer.pool;   // the tank is a window onto the same gene pool
+  if (!paused){
+    const steps = fast ? 3 : 1;
+    for (let k = 0; k < steps; k++) show.step(Trainer.best, Trainer.mask, true, Trainer.stage >= 8);
+    showHid.set(hid);   // grab it before the trainer overwrites the shared buffer
+    renderWater(frame);
+  }
+  Trainer.work(paused ? 26 : budget);
+
+  if (frame % 2 === 0) drawBrain();
+  if (frame % 10 === 0){
+    updatePanel();
+    if (Trainer.gen !== lastGen){ lastGen = Trainer.gen; drawCurve(); drawTraits(); }
+  }
+}
+
+/* ---------- wiring ---------- */
+function boot(){
+  Trainer.init(20260920);
+  sizeWater(); sizeBrain(); drawCurve(); drawTraits(); updatePanel();
+  show.reset(mulberry32(7), Trainer.pool);
+  requestAnimationFrame(tick);
+}
+
+let rt;
+window.addEventListener('resize', () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => { sizeWater(); sizeBrain(); drawCurve(); drawTraits(); }, 120);
+});
+
+el('b-pause').addEventListener('click', e => {
+  paused = !paused;
+  e.currentTarget.setAttribute('aria-pressed', String(paused));
+  e.currentTarget.textContent = paused ? 'Resume the water' : 'Pause the water';
+});
+el('b-fast').addEventListener('click', e => {
+  fast = !fast;
+  e.currentTarget.setAttribute('aria-pressed', String(fast));
+  e.currentTarget.textContent = fast ? 'Back to \u00d71' : 'Run at \u00d73';
+});
+el('b-scent').addEventListener('click', e => {
+  showScent = !showScent;
+  e.currentTarget.setAttribute('aria-pressed', String(showScent));
+  e.currentTarget.textContent = showScent ? 'Hide the scent' : 'Show the scent';
+});
+el('b-sense').addEventListener('click', e => {
+  showSense = !showSense;
+  e.currentTarget.setAttribute('aria-pressed', String(showSense));
+  e.currentTarget.textContent = showSense ? 'Hide what it sees' : 'Show what it sees';
+});
+el('b-skip').addEventListener('click', e => {
+  Trainer.skipToFull();
+  e.currentTarget.disabled = true;
+  e.currentTarget.textContent = 'Everything given';
+  updatePanel();
+});
+el('b-reset').addEventListener('click', () => {
+  Trainer.init(Math.floor(Math.random() * 1e9));
+  show.reset(mulberry32(Math.floor(Math.random() * 1e9)), Trainer.pool);
+  const skip = el('b-skip');
+  skip.disabled = false; skip.textContent = 'Hand it everything';
+  lastGen = -1; drawCurve(); drawTraits(); updatePanel();
+});
+el('b-theme').addEventListener('click', e => {
+  const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  e.currentTarget.textContent = dark ? 'Return to depth' : 'Print on paper';
+  readTheme();
+  wctx.fillStyle = T.water; wctx.fillRect(0, 0, VW, VH);
+  drawCurve(); drawTraits();
+});
+el('b-save').addEventListener('click', async () => {
+  const text = brainJSON();
+  const name = 'pelagic-brain-gen' + Trainer.gen + '.json';
+  const s = await getSaver();
+  if (s){
+    try {
+      await s.save({ filename: name, data: text });
+      say('Saved as ' + name + '.');
+      return;
+    } catch (err){
+      const code = err && err.code;
+      if (code === 'declined'){ say('Save cancelled.'); return; }
+      // anything else: fall through to the text panel, which always works
+    }
+  }
+  showIO(text, 'Downloads are not available here. Copy this and keep it in a file.');
+});
+el('b-load').addEventListener('click', () => {
+  showIO('', 'Paste a saved brain here, then load it.');
+  el('io-text').focus();
+});
+el('b-copy').addEventListener('click', async () => {
+  const t = el('io-text');
+  try { await navigator.clipboard.writeText(t.value); say('Copied.'); }
+  catch (e){ t.select(); say('Press the copy key for your system.'); }
+});
+el('b-apply').addEventListener('click', () => {
+  if (applyBrain(el('io-text').value)) el('io-panel').classList.remove('on');
+});
+el('b-close').addEventListener('click', () => { el('io-panel').classList.remove('on'); say(''); });
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target === document.body){ e.preventDefault(); el('b-pause').click(); }
+});
+
+boot();
+</script>
+</body>
+</html>
