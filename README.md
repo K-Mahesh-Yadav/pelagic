@@ -22,11 +22,7 @@ Open `index.html` in any modern browser. That's it.
 
 Training begins immediately from random weights, which means the first
 couple of minutes are a shark blundering around empty water. To see a
-competent hunter straight away:
-
-1. Open `demo-brain.json` and copy the whole file.
-2. In the page, go to **Keep this brain** and press **Load weights**.
-3. Paste, then press **Load these weights**.
+competent hunter straight away, press **Watch a trained shark**.
 
 That brain is 150 generations old and catches about 8 fish per 660-tick run.
 Training continues from there rather than restarting.
@@ -45,8 +41,9 @@ school leaves behind it. Fish turn rust-coloured when they bolt.
 - Hidden circles are the real post-tanh activation of each unit.
 - The output circle is the turn command steering the shark you are watching.
 - Line thickness is the real weight; brass is positive, blue negative.
-- Grey nodes are senses the curriculum has not unlocked yet. Their weights
-  exist but are multiplied by zero.
+- Grey nodes are senses the curriculum has not unlocked yet. They still show
+  what the sensor reads, but their weights are multiplied by zero, so the
+  brain ignores them.
 - The spine beside the hidden column is memory, lit once stage 8 arrives.
 
 It redraws every second frame, so it samples the state rather than showing
@@ -65,6 +62,7 @@ where it started and a band showing the spread across the population.
 
 | Control | What it does |
 |---|---|
+| Watch a trained shark | Loads the 150-generation brain from `demo-brain.json` in one click |
 | Pause the water | Freezes the display and gives the whole frame budget to training |
 | Run at ×3 | Three simulation ticks per frame |
 | Hide the scent | Toggles the plume overlay |
@@ -161,7 +159,7 @@ school would wheel as one body instead of fanning apart.
 | File | What it is |
 |---|---|
 | `index.html` | The whole thing. Simulation, training, and UI in one file. |
-| `demo-brain.json` | A 150-generation champion. Paste it into **Load weights**. |
+| `demo-brain.json` | A 150-generation champion. The page bundles the same brain behind **Watch a trained shark**. |
 | `pelagic_brain.py` | Load, inspect and run a saved brain offline. No dependencies. |
 
 ```
