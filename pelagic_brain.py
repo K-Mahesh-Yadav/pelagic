@@ -1,5 +1,5 @@
 """
-pelagic_brain.py — load, inspect and run a shark brain trained in Pelagic.
+pelagic_brain.py — load, inspect and run a shark brain trained in the page.
 
 A brain saved from the page is a single JSON file. This module reads it,
 rebuilds the network exactly as the browser runs it, and gives you three
@@ -42,7 +42,7 @@ FORMAT = "pelagic-brain"
 
 
 class BrainError(Exception):
-    """Raised when a file is not a usable Pelagic brain."""
+    """Raised when a file is not a usable saved brain."""
 
 
 class Brain:
@@ -50,7 +50,7 @@ class Brain:
 
     def __init__(self, data: dict):
         if not isinstance(data, dict) or data.get("format") != FORMAT:
-            raise BrainError("not a Pelagic brain file")
+            raise BrainError("not a saved brain file")
 
         net = data.get("network") or {}
         self.n_in: int = int(net.get("inputs", 0))
@@ -204,7 +204,7 @@ class Brain:
         t, w = self.training, self.world
         L: List[str] = []
         add = L.append
-        add(f"Pelagic brain — {self.n_in}\u2013{self.n_hid}\u20131, tanh")
+        add(f"Shark brain — {self.n_in}\u2013{self.n_hid}\u20131, tanh")
         add(f"  generation {t.get('generation', '?')}, "
             f"stage {t.get('stage', '?')} of {t.get('stagesTotal', '?')}"
             f"   best single hunt: {t.get('bestSingleHunt', '?')} fish")

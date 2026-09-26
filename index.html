@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Pelagic — a predator that learns</title>
+<title>A shark that learns to hunt</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
@@ -59,12 +59,6 @@
   .frame{height:100%; display:grid; grid-template-columns: minmax(0,1fr) 380px;}
 
   .stage{position:relative; min-width:0;}
-  .masthead{position:absolute; top:26px; left:30px; z-index:2; pointer-events:none; max-width:min(430px,60%);}
-  .masthead h1{
-    font-family:"Instrument Serif", Georgia, serif;
-    font-weight:400; font-size:46px; line-height:0.95; letter-spacing:-0.01em; margin:0 0 8px;
-  }
-  .masthead p{margin:0; color:var(--soft); font-size:13px; max-width:36ch;}
   #water{position:absolute; inset:0; display:block; width:100%; height:100%;}
   .readout{
     position:absolute; left:30px; bottom:24px; z-index:2; pointer-events:none;
@@ -126,8 +120,6 @@
     .frame{grid-template-columns:1fr; height:auto;}
     .stage{aspect-ratio:1/1;}
     .panel{border-left:none; border-top:1px solid var(--hair);}
-    .masthead{top:18px; left:18px; max-width:74%}
-    .masthead h1{font-size:34px}
     .readout{left:18px; bottom:16px; gap:18px}
   }
   @media (prefers-reduced-motion: reduce){ *{transition:none !important} }
@@ -136,10 +128,6 @@
 <body>
 <div class="frame">
   <section class="stage">
-    <div class="masthead">
-      <h1>Pelagic</h1>
-      <p>A shark that can see only a short way ahead of it learns to hunt a school of fish. Past that, it has to follow the smell they leave in the water. The school is evolving back.</p>
-    </div>
     <canvas id="water" role="img" aria-label="A school of fish, their scent plume, and a hunting shark, drawn live"></canvas>
     <div class="readout">
       <div><b id="r-gen">—</b>generation</div>
@@ -244,7 +232,7 @@
 <script>
 "use strict";
 /* ------------------------------------------------------------------ *
- *  Pelagic — boids school, short-sighted predator, olfactory tracking
+ *  Boids school, short-sighted predator, olfactory tracking
  * ------------------------------------------------------------------ */
 
 function mulberry32(a){
@@ -1358,7 +1346,7 @@ function applyBrain(text){
   let d;
   try { d = JSON.parse(text); }
   catch (e){ say('That is not readable JSON.'); return false; }
-  if (!d || d.format !== 'pelagic-brain'){ say('That file is not a Pelagic brain.'); return false; }
+  if (!d || d.format !== 'pelagic-brain'){ say('That file is not a saved brain.'); return false; }
   const net = d.network || {};
   if (net.inputs !== N_IN || net.hidden !== N_HID){
     say('Those weights are for a ' + net.inputs + '\u2013' + net.hidden + ' network; this one is ' + N_IN + '\u2013' + N_HID + '.');
@@ -1502,7 +1490,7 @@ el('b-theme').addEventListener('click', e => {
 });
 el('b-save').addEventListener('click', async () => {
   const text = brainJSON();
-  const name = 'pelagic-brain-gen' + Trainer.gen + '.json';
+  const name = 'shark-brain-gen' + Trainer.gen + '.json';
   const s = await getSaver();
   if (s){
     try {

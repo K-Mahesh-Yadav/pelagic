@@ -1,4 +1,4 @@
-# Pelagic
+# A shark that learns to hunt
 
 A school of fish, a shark that learns to hunt them, and a live view of every
 neuron in its head while it does.
@@ -11,14 +11,14 @@ to catch as the shark gets better at catching it.
 Everything runs in one self-contained HTML file. No build step, no server,
 no dependencies. Open it and it starts training.
 
-**Live demo:** _(add your link)_
+**Live demo:** https://k-mahesh-yadav.github.io/shark-that-learns/
 **Demo video:** _(add your link)_
 
 ---
 
 ## Run it
 
-Open `pelagic.html` in any modern browser. That's it.
+Open `index.html` in any modern browser. That's it.
 
 Training begins immediately from random weights, which means the first
 couple of minutes are a shark blundering around empty water. To see a
@@ -160,7 +160,7 @@ school would wheel as one body instead of fanning apart.
 
 | File | What it is |
 |---|---|
-| `pelagic.html` | The whole thing. Simulation, training, and UI in one file. |
+| `index.html` | The whole thing. Simulation, training, and UI in one file. |
 | `demo-brain.json` | A 150-generation champion. Paste it into **Load weights**. |
 | `pelagic_brain.py` | Load, inspect and run a saved brain offline. No dependencies. |
 
