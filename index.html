@@ -146,6 +146,7 @@
         <span><i class="swatch" style="background:var(--neg)"></i>turn the other</span>
         <span><i class="swatch" style="background:var(--hair)"></i>not yet given</span>
       </div>
+      <p class="after" id="brain-hint"></p>
       <p class="after">Sight reaches 160 units and stops, in a 150° cone; nothing is seen to the sides or behind. The four wall senses carry at any distance, on purpose: without them a shark with nothing in view reads a constant, and a constant turn is a circle. The last three senses are the nose: how strong the scent is here, whether there is more of it to one side, and whether it is building up ahead.</p>
     </div>
 
@@ -1108,15 +1109,14 @@ function drawBrain(){
   ctx.font = '10.5px "IBM Plex Sans", system-ui, sans-serif';
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let i = 0; i < N_IN; i++){
-    const n = nodeIn[i], live = mask[i] > 0, v = live ? sense[i] : 0;
+    const n = nodeIn[i], live = mask[i] > 0, v = sense[i] * mask[i];
     ctx.fillStyle = live ? T.soft : T.faint;
     ctx.globalAlpha = live ? 1 : 0.55;
     ctx.fillText(n.s.label, n.x - 11, n.y);
     ctx.globalAlpha = 1;
     ctx.beginPath(); ctx.arc(n.x, n.y, 4.4, 0, 6.283);
-    // a sense not yet given still reads the water; it shows in grey, wired in at zero
-    ctx.fillStyle = live ? (v >= 0 ? T.pos : T.neg) : T.faint;
-    ctx.globalAlpha = Math.min(1, Math.abs(live ? v : sense[i])) * (live ? 0.95 : 0.8);
+    ctx.fillStyle = v >= 0 ? T.pos : T.neg;
+    ctx.globalAlpha = live ? Math.min(1, Math.abs(v)) * 0.95 : 0;
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.lineWidth = 0.9; ctx.strokeStyle = live ? T.soft : T.hair; ctx.stroke();
@@ -1265,6 +1265,9 @@ function updatePanel(){
     : 'shark ' + (Trainer.i + 1) + ' of ' + POP;
   el('stage-label').textContent = 'Stage ' + Trainer.stage + ' of ' + LAST_STAGE;
   el('stage-desc').textContent = STAGE_DESC[Trainer.stage - 1];
+  el('brain-hint').textContent = Trainer.stage < LAST_STAGE
+    ? 'Stage ' + Trainer.stage + ' of ' + LAST_STAGE + ': ' + STAGE_DESC[Trainer.stage - 1] + '. Grey senses are not given yet, so the diagram fills in as they unlock.'
+    : '';
   const kids = stagesBar.children;
   for (let i = 0; i < LAST_STAGE; i++){
     kids[i].className = (i + 1 < Trainer.stage) ? 'on' : (i + 1 === Trainer.stage ? 'now' : '');

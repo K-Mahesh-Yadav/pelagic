@@ -41,9 +41,8 @@ school leaves behind it. Fish turn rust-coloured when they bolt.
 - Hidden circles are the real post-tanh activation of each unit.
 - The output circle is the turn command steering the shark you are watching.
 - Line thickness is the real weight; brass is positive, blue negative.
-- Grey nodes are senses the curriculum has not unlocked yet. They still show
-  what the sensor reads, but their weights are multiplied by zero, so the
-  brain ignores them.
+- Grey nodes are senses the curriculum has not unlocked yet. Their weights
+  exist but are multiplied by zero.
 - The spine beside the hidden column is memory, lit once stage 8 arrives.
 
 It redraws every second frame, so it samples the state rather than showing
