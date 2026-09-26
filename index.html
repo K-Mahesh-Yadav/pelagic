@@ -194,7 +194,7 @@
         <button id="b-demo">Watch a trained shark</button>
         <button id="b-pause" aria-pressed="false">Pause the water</button>
         <button id="b-fast" aria-pressed="false">Run at ×3</button>
-        <button id="b-scent" aria-pressed="true">Hide the scent</button>
+        <button id="b-scent" aria-pressed="false">Show the scent</button>
         <button id="b-sense" aria-pressed="false">Show what it sees</button>
         <button id="b-skip">Hand it everything</button>
         <button id="b-reset">Start evolution over</button>
@@ -974,7 +974,7 @@ function drawShark(ctx, x, y, a){
   ctx.restore();
 }
 
-let showSense = false, showScent = true;
+let showSense = false, showScent = false;
 
 function drawSenseOverlay(ctx){
   ctx.save();
